@@ -78,10 +78,8 @@ class PaynowBot {
 
         switch (this.memStore[user_id].state) {
           case STATES.GET_MOBILE:
-            if (
-              !this.numberRegex.test(msgText.text) &&
-              !this.cancelRegex.test(msgText.text)
-            ) {
+            if (!this.numberRegex.test(msgText.text)) {
+              if (this.cancelRegex.test(msgText.text)) break;
               await this.bot.sendMessage(
                 msg.chat.id,
                 "Please enter a valid number."
@@ -118,10 +116,8 @@ class PaynowBot {
             break;
 
           case STATES.GET_AMOUNT:
-            if (
-              !this.amountValidRegex.test(msgText.text) &&
-              !this.cancelRegex.test(msgText.text)
-            ) {
+            if (!this.amountValidRegex.test(msgText.text)) {
+              if (this.cancelRegex.test(msgText.text)) break;
               await this.bot.sendMessage(
                 msg.chat.id,
                 "Please enter a valid amount."
