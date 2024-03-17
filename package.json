@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "cross-env NODE_ENV=development ts-node src/index.ts",
-    "prod": "cross-env NODE_ENV=production ts-node src/index.ts",
+    "prod": "npx tsc && cross-env NODE_ENV=production node build/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
