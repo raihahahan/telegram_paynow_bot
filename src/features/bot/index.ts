@@ -1,6 +1,6 @@
 import TelegramBot from "node-telegram-bot-api";
 import { generateQRCode } from "../qr_code_generator";
-require("dotenv").config();
+require("dotenv").config({ path: `.env.${process.env.NODE_ENV}` });
 const fs = require("fs");
 import { INSTRUCTIONS } from "./resource";
 import { isNumeric } from "../../common/utils";
