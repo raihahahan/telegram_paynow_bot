@@ -5,15 +5,22 @@ const fs = require("fs");
 import { INSTRUCTIONS } from "./resource";
 import { isNumeric } from "../../common/utils";
 import { deleteGeneratedFiles } from "./utils";
+import { STATES } from "../../common/enums";
 
 class PaynowBot {
   private bot;
   private token;
+
+  //#region REGEX
   private numberRegex = /^[89]\d{7}$/;
   private titlePromptRegex = /.*/;
   private doneUsernameRegex = /\/done/;
   private amountPromptRegex = /.*/;
   private usernamePromptRegex = /^@(\S+)/;
+  private amountValidRegex = /^\d{1,3}(,\d{3})*(\.\d+)?$/;
+  //#endregion
+
+  private memStore = {};
 
   public constructor() {
     this.token = process.env.TELEGRAM_BOT_KEY ?? "";
@@ -48,63 +55,85 @@ class PaynowBot {
   }
 
   private createList() {
-    this.bot.onText(/\/create/, (msg, match) => {
-      this.clean();
-      const usernames = [];
-      let title = "";
-      let amount = "";
-      let mobile = "";
+    this.bot.onText(/\/create/, async (msg, match) => {
+      const user_id = msg.from.id.toString() + msg.chat.id.toString();
 
-      // ====== GET MOBIlE ======
-      this.bot.sendMessage(msg.chat.id, "Mobile number to pay to");
-      this.bot.onText(this.numberRegex, (msg) => {
-        mobile = msg.text;
-        this.bot.removeTextListener(this.numberRegex);
+      this.memStore[user_id] = {
+        title: "",
+        mobile: "",
+        amount: "",
+        users: [],
+        state: STATES.GET_MOBILE,
+      };
 
-        // ====== GET TITLE ======
+      await this.bot.sendMessage(
+        msg.chat.id,
+        "Mobile number to pay to (without the country prefix).\n\nUse /cancel to cancel."
+      );
 
-        this.bot.sendMessage(msg.chat.id, "What is the payment for?");
-        this.bot.onText(this.titlePromptRegex, (msg) => {
-          title = msg.text;
-          this.bot.removeTextListener(this.titlePromptRegex);
+      this.bot.onText(/.*/, async (msgText) => {
+        switch (this.memStore[user_id].state) {
+          case STATES.GET_MOBILE:
+            if (!this.numberRegex.test(msgText.text)) {
+              await this.bot.sendMessage(
+                msg.chat.id,
+                "Please enter a valid number."
+              );
+            } else {
+              this.memStore[user_id].mobile = msgText.text;
+              this.memStore[user_id].state = STATES.GET_TITLE;
+              await this.bot.sendMessage(
+                msg.chat.id,
+                "What is this payment for?"
+              );
+            }
+            break;
 
-          // ====== GET USERNAMES ======
-
-          this.bot.sendMessage(
-            msg.chat.id,
-            "Add usernames one by one with the @ symbol. Send /done when done."
-          );
-
-          this.bot.onText(this.usernamePromptRegex, (msg) => {
-            usernames.push(msg.text);
-          });
-
-          // ====== GET AMOUNT ======
-
-          this.bot.onText(this.doneUsernameRegex, (msg) => {
-            this.bot.removeTextListener(this.usernamePromptRegex);
-            this.bot.sendMessage(
+          case STATES.GET_TITLE:
+            this.memStore[user_id].title = msgText.text;
+            this.memStore[user_id].state = STATES.GET_USERS;
+            await this.bot.sendMessage(
               msg.chat.id,
-              "Amount to pay (just input the number) e.g. 20.50"
+              "Add usernames one by one with the @ symbol. Names without the symbol will be ignored.\n\n Send /done when done."
             );
+            break;
 
-            this.bot.onText(this.amountPromptRegex, (msg) => {
-              const numericReg = /^\d+(\.\d+)?$/;
-              if (!numericReg.test(msg.text)) {
-                this.bot.sendMessage("Please enter a valid amount");
-              } else {
-                amount = msg.text;
-                this.bot.removeTextListener(this.doneUsernameRegex);
-                this.bot.removeTextListener(this.amountPromptRegex);
-                let messageText = "";
-                messageText += `Pay $${amount} for ${title} to ${mobile}\n`;
-                messageText += usernames.join("\n");
+          case STATES.GET_USERS:
+            if (this.doneUsernameRegex.test(msgText.text)) {
+              await this.bot.sendMessage(
+                msg.chat.id,
+                "Amount to pay (just input the number) e.g. 20.50"
+              );
+              this.memStore[user_id].state = STATES.GET_AMOUNT;
+            } else if (this.usernamePromptRegex.test(msgText.text)) {
+              this.memStore[user_id].users.push(msgText.text);
+            }
+            break;
 
-                this.generateListMessage(msg, mobile, amount, messageText);
-              }
-            });
-          });
-        });
+          case STATES.GET_AMOUNT:
+            if (!this.amountValidRegex.test(msgText.text)) {
+              await this.bot.sendMessage(
+                msg.chat.id,
+                "Please enter a valid amount."
+              );
+            } else {
+              this.memStore[user_id].amount = msgText.text;
+              this.memStore[user_id].state = STATES.UNUSE;
+
+              // ====== GENERATE LIST ======
+              let messageText = "";
+              const { amount, title, mobile, users } = this.memStore[user_id];
+
+              messageText += `Pay $${amount} for ${title} to ${mobile}\n`;
+              messageText += users.join("\n");
+
+              this.generateListMessage(msg, mobile, amount, messageText);
+            }
+            break;
+
+          default:
+            break;
+        }
       });
     });
   }
@@ -129,18 +158,8 @@ class PaynowBot {
               return;
             }
 
-            this.bot.sendMessage(msg.chat.id, messageText);
-
             this.bot
-              .sendPhoto(
-                msg.chat.id,
-                data,
-                {},
-                {
-                  filename: "qr.jpg", // Set the filename
-                  contentType: "image/jpeg",
-                }
-              )
+              .sendPhoto(msg.chat.id, data, { caption: messageText })
               .then((sent) => {
                 console.log("Document sent:", sent);
                 resolve("Done");
@@ -161,11 +180,6 @@ class PaynowBot {
 
   private clean() {
     deleteGeneratedFiles();
-    this.bot.removeTextListener(this.numberRegex);
-    this.bot.removeTextListener(this.titlePromptRegex);
-    this.bot.removeTextListener(this.usernamePromptRegex);
-    this.bot.removeTextListener(this.doneUsernameRegex);
-    this.bot.removeTextListener(this.amountPromptRegex);
   }
 }
 

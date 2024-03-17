@@ -1,0 +1,7 @@
+export enum STATES {
+  UNUSE,
+  GET_MOBILE,
+  GET_TITLE,
+  GET_USERS,
+  GET_AMOUNT,
+}
