@@ -70,6 +70,7 @@ class PaynowBot {
       );
 
       this.bot.onText(/.*/, async (msgText) => {
+        if (/\/cancel/.test(msgText.text)) return;
         switch (this.memStore[user_id].state) {
           case STATES.GET_MOBILE:
             if (!this.numberRegex.test(msgText.text)) {
