@@ -73,6 +73,9 @@ class PaynowBot {
         return;
       }
 
+      // if any commands other than cancel or create, ignore
+      if (/^(?!\/(?:cancel|create)$)\/\w+$/.test(msg.text)) return;
+
       if (user_id in this.memStore) {
         switch (this.memStore[user_id].state) {
           case STATES.GET_MOBILE:
