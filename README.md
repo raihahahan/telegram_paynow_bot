@@ -11,3 +11,5 @@ A simple Telegram Bot that collates a list of users who owe you money and genera
 ## Usage
 - Just go to the bot and start to see the instructions.
 
+## Production
+- A working production build can be tested here: https://t.me/paynow_paynow_bot. It is still buggy.
