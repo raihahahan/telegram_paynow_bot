@@ -1,1 +1,4 @@
-console.log("hello world");
+import PaynowBot from "./features/bot";
+
+const bot = new PaynowBot();
+bot.init();
