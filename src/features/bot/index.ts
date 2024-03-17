@@ -27,6 +27,14 @@ class PaynowBot {
   public init() {
     this.sendInstructions();
     this.createList();
+    this.cancel();
+  }
+
+  private cancel() {
+    this.bot.onText(/\/cancel/, (msg) => {
+      this.bot.sendMessage(msg.chat.id, "List cancelled.");
+      this.clean();
+    });
   }
 
   private sendInstructions() {

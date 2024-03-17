@@ -1,3 +1,3 @@
 export const INSTRUCTIONS = {
-  START: "Usage: /create",
+  START: "Usage: /create. Send /cancel to cancel.",
 };
