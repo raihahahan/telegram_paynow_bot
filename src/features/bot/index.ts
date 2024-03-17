@@ -13,9 +13,7 @@ class PaynowBot {
 
   //#region REGEX
   private numberRegex = /^[89]\d{7}$/;
-  private titlePromptRegex = /.*/;
   private doneUsernameRegex = /\/done/;
-  private amountPromptRegex = /.*/;
   private usernamePromptRegex = /^@(\S+)/;
   private amountValidRegex = /^\d{1,3}(,\d{3})*(\.\d+)?$/;
   //#endregion
