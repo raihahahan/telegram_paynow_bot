@@ -16,7 +16,6 @@ class PaynowBot {
   private doneUsernameRegex = /\/done/;
   private usernamePromptRegex = /^@(\S+)/;
   private amountValidRegex = /^\d{1,3}(,\d{3})*(\.\d+)?$/;
-  private cancelRegex = /\/cancel/;
   //#endregion
 
   private memStore = {};
@@ -33,14 +32,6 @@ class PaynowBot {
   public init() {
     this.sendInstructions();
     this.createList();
-    this.cancel();
-  }
-
-  private cancel() {
-    this.bot.onText(this.cancelRegex, (msg) => {
-      this.bot.sendMessage(msg.chat.id, "List cancelled.");
-      this.clean();
-    });
   }
 
   private sendInstructions() {
@@ -54,38 +45,44 @@ class PaynowBot {
   }
 
   private createList() {
-    this.bot.onText(/\/create/, async (msg, match) => {
-      const user_id = msg.from.id.toString() + msg.chat.id.toString();
+    this.bot.onText(/.*/, async (msg, match) => {
+      const user_id = msg.from.id.toString();
 
-      this.memStore[user_id] = {
-        title: "",
-        mobile: "",
-        amount: "",
-        users: [],
-        state: STATES.GET_MOBILE,
-      };
-
-      await this.bot.sendMessage(
-        msg.chat.id,
-        "Mobile number to pay to (without the country prefix).\n\nUse /cancel to cancel."
-      );
-
-      this.bot.onText(/.*/, async (msgText) => {
-        if (this.cancelRegex.test(msgText.text)) {
-          this.memStore[user_id].state = STATES.UNUSE;
-          return;
+      if (/^\/cancel$/.test(msg.text)) {
+        if (user_id in this.memStore) {
+          delete this.memStore[user_id];
+          this.bot.sendMessage(msg.chat.id, "List cancelled.");
         }
+        this.clean();
+        return;
+      }
 
+      if (/^\/create$/.test(msg.text)) {
+        this.memStore[user_id] = {
+          title: "",
+          mobile: "",
+          amount: "",
+          users: [],
+          state: STATES.GET_MOBILE,
+        };
+
+        await this.bot.sendMessage(
+          msg.chat.id,
+          "Mobile number to pay to (without the country prefix).\n\nUse /cancel to cancel."
+        );
+        return;
+      }
+
+      if (user_id in this.memStore) {
         switch (this.memStore[user_id].state) {
           case STATES.GET_MOBILE:
-            if (!this.numberRegex.test(msgText.text)) {
-              if (this.cancelRegex.test(msgText.text)) break;
+            if (!this.numberRegex.test(msg.text)) {
               await this.bot.sendMessage(
                 msg.chat.id,
                 "Please enter a valid number."
               );
             } else {
-              this.memStore[user_id].mobile = msgText.text;
+              this.memStore[user_id].mobile = msg.text;
               this.memStore[user_id].state = STATES.GET_TITLE;
               await this.bot.sendMessage(
                 msg.chat.id,
@@ -95,7 +92,7 @@ class PaynowBot {
             break;
 
           case STATES.GET_TITLE:
-            this.memStore[user_id].title = msgText.text;
+            this.memStore[user_id].title = msg.text;
             this.memStore[user_id].state = STATES.GET_USERS;
             await this.bot.sendMessage(
               msg.chat.id,
@@ -104,26 +101,25 @@ class PaynowBot {
             break;
 
           case STATES.GET_USERS:
-            if (this.doneUsernameRegex.test(msgText.text)) {
+            if (this.doneUsernameRegex.test(msg.text)) {
               await this.bot.sendMessage(
                 msg.chat.id,
                 "Amount to pay (just input the number) e.g. 20.50"
               );
               this.memStore[user_id].state = STATES.GET_AMOUNT;
-            } else if (this.usernamePromptRegex.test(msgText.text)) {
-              this.memStore[user_id].users.push(msgText.text);
+            } else if (this.usernamePromptRegex.test(msg.text)) {
+              this.memStore[user_id].users.push(msg.text);
             }
             break;
 
           case STATES.GET_AMOUNT:
-            if (!this.amountValidRegex.test(msgText.text)) {
-              if (this.cancelRegex.test(msgText.text)) break;
+            if (!this.amountValidRegex.test(msg.text)) {
               await this.bot.sendMessage(
                 msg.chat.id,
                 "Please enter a valid amount."
               );
             } else {
-              this.memStore[user_id].amount = msgText.text;
+              this.memStore[user_id].amount = msg.text;
               this.memStore[user_id].state = STATES.UNUSE;
 
               // ====== GENERATE LIST ======
@@ -140,7 +136,7 @@ class PaynowBot {
           default:
             break;
         }
-      });
+      }
     });
   }
 
