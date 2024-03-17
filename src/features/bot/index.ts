@@ -9,6 +9,11 @@ import { deleteGeneratedFiles } from "./utils";
 class PaynowBot {
   private bot;
   private token;
+  private numberRegex = /^[89]\d{7}$/;
+  private titlePromptRegex = /.*/;
+  private doneUsernameRegex = /\/done/;
+  private amountPromptRegex = /.*/;
+  private usernamePromptRegex = /^@(\S+)/;
 
   public constructor() {
     this.token = process.env.TELEGRAM_BOT_KEY ?? "";
@@ -36,6 +41,7 @@ class PaynowBot {
 
   private createList() {
     this.bot.onText(/\/create/, (msg, match) => {
+      this.clean();
       const usernames = [];
       let title = "";
       let amount = "";
@@ -43,46 +49,45 @@ class PaynowBot {
 
       // ====== GET MOBIlE ======
       this.bot.sendMessage(msg.chat.id, "Mobile number to pay to");
-      const numberRegex = /^[89]\d{7}$/;
-      this.bot.onText(numberRegex, (msg) => {
+      this.bot.onText(this.numberRegex, (msg) => {
         mobile = msg.text;
-        this.bot.removeTextListener(numberRegex);
+        this.bot.removeTextListener(this.numberRegex);
 
         // ====== GET TITLE ======
-        const titlePromptRegex = /.*/;
+
         this.bot.sendMessage(msg.chat.id, "What is the payment for?");
-        this.bot.onText(titlePromptRegex, (msg) => {
+        this.bot.onText(this.titlePromptRegex, (msg) => {
           title = msg.text;
-          this.bot.removeTextListener(titlePromptRegex);
+          this.bot.removeTextListener(this.titlePromptRegex);
 
           // ====== GET USERNAMES ======
-          const usernamePromptRegex = /^@(\S+)/;
+
           this.bot.sendMessage(
             msg.chat.id,
             "Add usernames one by one with the @ symbol. Send /done when done."
           );
 
-          this.bot.onText(usernamePromptRegex, (msg) => {
+          this.bot.onText(this.usernamePromptRegex, (msg) => {
             usernames.push(msg.text);
           });
 
           // ====== GET AMOUNT ======
-          const doneUsernameRegex = /\/done/;
-          this.bot.onText(doneUsernameRegex, (msg) => {
-            this.bot.removeTextListener(usernamePromptRegex);
+
+          this.bot.onText(this.doneUsernameRegex, (msg) => {
+            this.bot.removeTextListener(this.usernamePromptRegex);
             this.bot.sendMessage(
               msg.chat.id,
               "Amount to pay (just input the number) e.g. 20.50"
             );
-            const amountPromptRegex = /.*/;
-            this.bot.onText(amountPromptRegex, (msg) => {
+
+            this.bot.onText(this.amountPromptRegex, (msg) => {
               const numericReg = /^\d+(\.\d+)?$/;
               if (!numericReg.test(msg.text)) {
                 this.bot.sendMessage("Please enter a valid amount");
               } else {
                 amount = msg.text;
-                this.bot.removeTextListener(doneUsernameRegex);
-                this.bot.removeTextListener(amountPromptRegex);
+                this.bot.removeTextListener(this.doneUsernameRegex);
+                this.bot.removeTextListener(this.amountPromptRegex);
                 let messageText = "";
                 messageText += `Pay $${amount} for ${title} to ${mobile}\n`;
                 messageText += usernames.join("\n");
@@ -148,6 +153,11 @@ class PaynowBot {
 
   private clean() {
     deleteGeneratedFiles();
+    this.bot.removeTextListener(this.numberRegex);
+    this.bot.removeTextListener(this.titlePromptRegex);
+    this.bot.removeTextListener(this.usernamePromptRegex);
+    this.bot.removeTextListener(this.doneUsernameRegex);
+    this.bot.removeTextListener(this.amountPromptRegex);
   }
 }
 
