@@ -16,6 +16,7 @@ class PaynowBot {
   private doneUsernameRegex = /\/done/;
   private usernamePromptRegex = /^@(\S+)/;
   private amountValidRegex = /^\d{1,3}(,\d{3})*(\.\d+)?$/;
+  private cancelRegex = /\/cancel/;
   //#endregion
 
   private memStore = {};
@@ -36,7 +37,7 @@ class PaynowBot {
   }
 
   private cancel() {
-    this.bot.onText(/\/cancel/, (msg) => {
+    this.bot.onText(this.cancelRegex, (msg) => {
       this.bot.sendMessage(msg.chat.id, "List cancelled.");
       this.clean();
     });
@@ -70,14 +71,17 @@ class PaynowBot {
       );
 
       this.bot.onText(/.*/, async (msgText) => {
-        if (/\/cancel/.test(msgText.text)) {
+        if (this.cancelRegex.test(msgText.text)) {
           this.memStore[user_id].state = STATES.UNUSE;
           return;
         }
 
         switch (this.memStore[user_id].state) {
           case STATES.GET_MOBILE:
-            if (!this.numberRegex.test(msgText.text)) {
+            if (
+              !this.numberRegex.test(msgText.text) &&
+              !this.cancelRegex.test(msgText.text)
+            ) {
               await this.bot.sendMessage(
                 msg.chat.id,
                 "Please enter a valid number."
@@ -114,7 +118,10 @@ class PaynowBot {
             break;
 
           case STATES.GET_AMOUNT:
-            if (!this.amountValidRegex.test(msgText.text)) {
+            if (
+              !this.amountValidRegex.test(msgText.text) &&
+              !this.cancelRegex.test(msgText.text)
+            ) {
               await this.bot.sendMessage(
                 msg.chat.id,
                 "Please enter a valid amount."
